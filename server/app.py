@@ -1,6 +1,9 @@
-from flask import Flask, request
+from typing import Optional
+from flask import Flask, request, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Date, Float, String, Integer
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+import bcrypt
 
 from server.env_loader import load_local_env
 
@@ -12,53 +15,37 @@ try:
 except Exception as error:
     print("Error occured")
     print(f"{error}")
+    exit(2)
 
 app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = local_env["SQLALCHEMY_DATABASE_URI"]
 
-db = SQLAlchemy(app)
+class DbBase(DeclarativeBase):
+    pass
+    
+db = SQLAlchemy(model_class = DbBase)
+SALT = bcrypt.gensalt()
 
 
 
-class Users(db.Model):
+class User(db.Model):
     __tablename__ = "users"
     
-    id          = db.Column("id", Integer, primary_key = True)
-    email       = db.Column("email", String(50), unique = True, nullable = False)
-    password    = db.Column("password", String(500), nullable = False)
-    role        = db.Column("role", String(8), nullable = False) # USER | MANAGER | ADMIN
-    first_name  = db.Column("first_name", String(25))
-    last_name   = db.Column("last_name", String(25))
-    birth_date  = db.Column("birth_date", Date)
-    gender      = db.Column("gender", String(1))
-    country     = db.Coluumn("country", String(30)) # encrypted
-    street      = db.Column("street", String(50)) # encrypted
-    balance     = db.Column("balance", Float)
+    id: Mapped[int]                    = mapped_column(Integer, primary_key = True)
+    email: Mapped[str]                 = mapped_column(String(50), unique = True, nullable = False)
+    password: Mapped[str]              = mapped_column(String(500), nullable = False)
+    role: Mapped[str]                  = mapped_column(String(8), nullable = False) # USER | MANAGER | ADMIN
+    first_name: Mapped[Optional[str]]  = mapped_column(String(25))
+    last_name: Mapped[Optional[str]]   = mapped_column(String(25))
+    birth_date: Mapped[Optional[Date]] = mapped_column(Date)
+    gender: Mapped[Optional[str]]      = mapped_column(String(1)) # M | F | _
+    country: Mapped[Optional[str]]     = mapped_column(String(30)) # encrypted
+    street: Mapped[Optional[str]]      = mapped_column(String(50)) # encrypted
+    balance: Mapped[float]             = mapped_column(Float, nullable = False, default = 0.0)
     
-    def __init__(self,
-        email,
-        password,
-        role,
-        first_name,
-        last_name,
-        birth_date,
-        gender,
-        country,
-        street,
-        balance
-    ):
-        # __init__ body
-        self.email      = email
-        self.password   = password
-        self.role       = role
-        self.first_name = first_name
-        self.last_name  = last_name
-        self.birth_date = birth_date
-        self.gender     = gender
-        self.country    = country
-        self.street     = street
-        self.balance    = balance
+    def __repr__(self) -> str:
+        return f"User{{id={self.id!r}, email={self.email!r}}}"
 
 
 
