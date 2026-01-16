@@ -73,11 +73,19 @@ def user_login():
     is_password_empty = unhashed_password is None or unhashed_password == ""
     if (is_email_empty or is_password_empty):
         return "Invalid form request"
-        
-    hashed_password = bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT)
-        
-    query = User.query.filter_by(email = user_email).first()
-    if query is None or query.password == hashed_password:
+    
+    _query: (User | None) = User.query.filter_by(email = user_email).first()
+    if _query is None:
+        flash("Invalid email or password (or this account doesn\'t exist)", "error")
+        return "Invalid email or password (or this account doesn\'t exist)"
+    
+    query: User = _query
+    is_password_correct = bcrypt.checkpw(
+        unhashed_password.encode("utf-8"),
+        query.password.encode("utf-8")
+    )
+    
+    if query is None or is_password_correct:
         flash("Invalid email or password (or this account doesn\'t exist)", "error")
         return "Invalid email or password (or this account doesn\'t exist)"
     
