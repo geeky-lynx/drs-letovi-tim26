@@ -1,4 +1,5 @@
 from datetime import datetime
+from base64 import standard_b64decode as base64encode
 from typing import Optional
 from flask import Flask, request, session, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -104,23 +105,39 @@ def user_register():
         return "Invalid form request"
         
     old_user = User.query.filter_by(email = user_email).first()
-    if old_user != None:
+    if old_user is not None:
         return "User with that email already exists"
         
     if unhashed_password != repeated_password:
         flash("Passwords don\'t match", "error")
         return "Passwords don\'t match"
         
-    hashed_password = bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT)
+    hashed_password = str(bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT))
     role = request.form["role"] if "role" in request.form else "USER"
     first_name = request.form["first_name"]
     last_name = request.form["last_name"]
-    birth_date = request.form["birth_date"]
+    birth_date = datetime.strptime(request.form["birth_date"], "%Y-%m-%d")
     gender = request.form["gender"]
     country = request.form["country"]
     street = request.form["street"]
     
     # TODO: Add DB query to add and handle errors
+    new_user = User()
+    new_user.email = user_email
+    new_user.password = hashed_password
+    new_user.role = role
+    new_user.first_name = first_name
+    new_user.last_name = last_name
+    new_user.birth_date = birth_date
+    new_user.gender = gender
+    new_user.country = str(base64encode(country))
+    new_user.street = str(base64encode(street))
+    
+    # db_insert(User).values(
+    #     email = user_email
+    # )
+    db.session.add(new_user)
+    db.session.commit()
     
     return "TODO: Implement"
 
