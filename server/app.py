@@ -1,3 +1,4 @@
+import re as regex
 from os import getenv
 from datetime import datetime
 from base64 import standard_b64decode as base64encode
@@ -8,6 +9,38 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, Float, String, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import bcrypt
+
+
+
+# Validate functions
+def is_email_valid(email: str) -> bool:
+    if '@' not in email:
+        return False
+    [user, domain] = email.split('@')
+    if len(user) < 1 or '.' not in domain:
+        return False
+        
+    for char in user.lower():
+        if char not in "abcdefghijklmnopqrstuvxqz1234567890.":
+            return False
+    for char in domain.lower():
+        if char not in "abcdefghijklmnopqrstuvxqz1234567890.":
+            return False
+    
+    [host, compart] = domain.split('.', 1)
+    if len(host) < 1 or len(compart) < 2:
+        return False
+    return True
+
+
+
+def is_password_valid(password: str) -> bool:
+    length = len(password)
+    if 8 > length or length > 25:
+        return False
+    if regex.search(r"[a-zA-Z0-9.,?!@#$%^&*_\;-]+", password) is None:
+        return False
+    return True
 
 
 
@@ -22,6 +55,7 @@ print("Local .env is loaded")
 app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = getenv("SQLALCHEMY_DATABASE_URI")
+app.secret_key = getenv("SECRET_KEY")
 
 class DbBase(DeclarativeBase):
     pass
@@ -73,11 +107,19 @@ def user_login():
     is_password_empty = unhashed_password is None or unhashed_password == ""
     if (is_email_empty or is_password_empty):
         return "Invalid form request"
+        
+    if not is_email_valid(user_email):
+        flash("Invalid email", "error")
+        return "Incorrect email"
+        
+    if not is_password_valid(unhashed_password):
+        flash("Invalid password", "error")
+        return "Incorrect password"
     
     _query: (User | None) = User.query.filter_by(email = user_email).first()
     if _query is None:
-        flash("Invalid email or password (or this account doesn\'t exist)", "error")
-        return "Invalid email or password (or this account doesn\'t exist)"
+        flash("Incorrect email or password (or this account doesn\'t exist)", "error")
+        return "Incorrect email or password (or this account doesn\'t exist)"
     
     query: User = _query
     is_password_correct = bcrypt.checkpw(
@@ -86,8 +128,8 @@ def user_login():
     )
     
     if query is None or is_password_correct:
-        flash("Invalid email or password (or this account doesn\'t exist)", "error")
-        return "Invalid email or password (or this account doesn\'t exist)"
+        flash("Incorrect email or password (or this account doesn\'t exist)", "error")
+        return "Incorrect email or password (or this account doesn\'t exist)"
     
     session["user"] = user_email
     return "Successfully logged in"
@@ -111,6 +153,18 @@ def user_register():
     is_repeated_empty = repeated_password is None or repeated_password == ""
     if (is_email_empty or is_password_empty or is_repeated_empty):
         return "Invalid form request"
+        
+    if not is_email_valid(user_email):
+        flash("Invalid email", "error")
+        return "Incorrect email"
+        
+    if not is_password_valid(unhashed_password):
+        flash("Invalid password", "error")
+        return "Incorrect password"
+        
+    if not is_password_valid(repeated_password):
+        flash("Invalid repeated password", "error")
+        return "Incorrect repeated password"
         
     old_user = User.query.filter_by(email = user_email).first()
     if old_user is not None:
