@@ -1,32 +1,32 @@
+from os import getenv
 from datetime import datetime
 from base64 import standard_b64decode as base64encode
 from typing import Optional
+from dotenv import load_dotenv
 from flask import Flask, request, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, Float, String, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import bcrypt
 
-from server.env_loader import load_local_env
 
 
-
-local_env = dict()
 try:
-    local_env = load_local_env()
+    load_dotenv()
 except Exception as error:
     print("Error occured")
     print(f"{error}")
     exit(2)
+print("Local .env is loaded")
 
 app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = local_env["SQLALCHEMY_DATABASE_URI"]
+app.config["SQLALCHEMY_DATABASE_URI"] = getenv("SQLALCHEMY_DATABASE_URI")
 
 class DbBase(DeclarativeBase):
     pass
     
-db = SQLAlchemy(model_class = DbBase)
+db = SQLAlchemy(app, model_class = DbBase)
 SALT = bcrypt.gensalt()
 
 
