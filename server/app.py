@@ -1,32 +1,80 @@
+import re as regex
+from os import getenv
 from datetime import datetime
 from base64 import standard_b64decode as base64encode
 from typing import Optional
-from flask import Flask, request, session, flash
+from dotenv import load_dotenv
+from flask import Flask, request, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, Float, String, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import bcrypt
-
-from server.env_loader import load_local_env
-
+import jwt
 
 
-local_env = dict()
+
+# Validate functions
+def is_email_valid(email: str) -> bool:
+    if '@' not in email:
+        return False
+    [user, domain] = email.split('@')
+    if len(user) < 1 or '.' not in domain:
+        return False
+        
+    for char in user.lower():
+        if char not in "abcdefghijklmnopqrstuvxqz1234567890.":
+            return False
+    for char in domain.lower():
+        if char not in "abcdefghijklmnopqrstuvxqz1234567890.":
+            return False
+    
+    [host, compart] = domain.split('.', 1)
+    if len(host) < 1 or len(compart) < 2:
+        return False
+    return True
+
+
+
+def is_password_valid(password: str) -> bool:
+    length = len(password)
+    if 8 > length or length > 25:
+        return False
+    if regex.search(r"[a-zA-Z0-9.,?!@#$%^&*_\;-]+", password) is None:
+        return False
+    return True
+
+
+
 try:
-    local_env = load_local_env()
+    load_dotenv()
 except Exception as error:
     print("Error occured")
     print(f"{error}")
     exit(2)
+print("Local .env is loaded")
 
 app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = local_env["SQLALCHEMY_DATABASE_URI"]
+SECRET_KEY = getenv("SECRET_KEY")
+DB_URI = getenv("SQLALCHEMY_DATABASE_URI")
+
+# Stop the program if there are no config parameters
+if SECRET_KEY is None:
+    print("SECRET_KEY == None! Can\'t proceed with running Flask instance")
+    exit(2)
+
+if DB_URI is None:
+    print("DB_URI == None! Can\'t proceed with running Flask instance")
+    exit(2)
+
+    
+app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
+app.secret_key = SECRET_KEY
 
 class DbBase(DeclarativeBase):
     pass
     
-db = SQLAlchemy(model_class = DbBase)
+db = SQLAlchemy(app, model_class = DbBase)
 SALT = bcrypt.gensalt()
 
 
@@ -57,14 +105,13 @@ def ping_reachable():
 
 
 
-# TODO: Change responses
 @app.route("/login", methods = ["POST"])
 def user_login():
     if "user" in session and session["user"] != "":
-        return "Already logged in"
+        return jsonify({"message": "Already logged in"}), 400
     
     if request.method != "POST":
-        return "Invalid HTTP method"
+        return jsonify({"message": "Invalid HTTP method"}), 400
         
     user_email = request.form["email"]
     unhashed_password = request.form["password"]
@@ -72,12 +119,20 @@ def user_login():
     is_email_empty = user_email is None or user_email == ""
     is_password_empty = unhashed_password is None or unhashed_password == ""
     if (is_email_empty or is_password_empty):
-        return "Invalid form request"
+        return jsonify({"message": "Invalid form request"}), 400
+        
+    if not is_email_valid(user_email):
+        flash("Invalid email", "error")
+        return jsonify({"message": "Incorrect email"}), 400
+        
+    if not is_password_valid(unhashed_password):
+        flash("Invalid password", "error")
+        return jsonify({"message": "Incorrect password"}), 400
     
     _query: (User | None) = User.query.filter_by(email = user_email).first()
     if _query is None:
-        flash("Invalid email or password (or this account doesn\'t exist)", "error")
-        return "Invalid email or password (or this account doesn\'t exist)"
+        flash("Incorrect email or password (or this account doesn\'t exist)", "error")
+        return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
     
     query: User = _query
     is_password_correct = bcrypt.checkpw(
@@ -86,21 +141,39 @@ def user_login():
     )
     
     if query is None or is_password_correct:
-        flash("Invalid email or password (or this account doesn\'t exist)", "error")
-        return "Invalid email or password (or this account doesn\'t exist)"
+        flash("Incorrect email or password (or this account doesn\'t exist)", "error")
+        return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
     
-    session["user"] = user_email
-    return "Successfully logged in"
+    dto = {
+        "id": query.id,
+        "email": query.email,
+        "role": query.role,
+        "first_name": query.first_name,
+        "last_name": query.last_name,
+        "birth_date": query.birth_date,
+        "gender": query.gender,
+        "country": query.country,
+        "street": query.street,
+        "balance": query.balance
+    }
+    
+    # This is added to silence linter errors
+    if SECRET_KEY is None:
+        print("SECRET_KEY == None! SHOULD NEVER HAPPEN")
+        return
+    secret: str = SECRET_KEY
+    token = jwt.encode(dto, secret)
+    return jsonify({"message": "Successfully logged in", "token": token}), 200
 
 
 
 @app.route("/register", methods = ["POST"])
 def user_register():
     if "user" in session and session["user"] != "":
-        return "Logged in; must logout first"
+        return jsonify({"message": "Logged in; must logout first"}), 400
     
     if request.method != "POST":
-        return "Invalid HTTP method"
+        return jsonify({"message": "Invalid HTTP method"}), 400
         
     user_email = request.form["email"]
     unhashed_password = request.form["password"]
@@ -110,15 +183,27 @@ def user_register():
     is_password_empty = unhashed_password is None or unhashed_password == ""
     is_repeated_empty = repeated_password is None or repeated_password == ""
     if (is_email_empty or is_password_empty or is_repeated_empty):
-        return "Invalid form request"
+        return jsonify({"message": "Invalid form request"}), 400
+        
+    if not is_email_valid(user_email):
+        flash("Invalid email", "error")
+        return jsonify({"message": "Incorrect email"}), 400
+        
+    if not is_password_valid(unhashed_password):
+        flash("Invalid password", "error")
+        return jsonify({"message": "Incorrect password"}), 400
+        
+    if not is_password_valid(repeated_password):
+        flash("Invalid repeated password", "error")
+        return jsonify({"message": "Incorrect repeated password"}), 400
         
     old_user = User.query.filter_by(email = user_email).first()
     if old_user is not None:
-        return "User with that email already exists"
+        return jsonify({"message": "User with that email already exists"}), 400
         
     if unhashed_password != repeated_password:
         flash("Passwords don\'t match", "error")
-        return "Passwords don\'t match"
+        return jsonify({"message": "Passwords don\'t match"}), 400
         
     hashed_password = str(bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT))
     role = request.form["role"] if "role" in request.form else "USER"
@@ -129,7 +214,6 @@ def user_register():
     country = request.form["country"]
     street = request.form["street"]
     
-    # TODO: Add DB query to add and handle errors
     new_user = User()
     new_user.email = user_email
     new_user.password = hashed_password
@@ -141,13 +225,30 @@ def user_register():
     new_user.country = str(base64encode(country))
     new_user.street = str(base64encode(street))
     
-    # db_insert(User).values(
-    #     email = user_email
-    # )
     db.session.add(new_user)
     db.session.commit()
     
-    return "TODO: Implement"
+    dto = {
+        "id": new_user.id,
+        "email": new_user.email,
+        "role": new_user.role,
+        "first_name": new_user.first_name,
+        "last_name": new_user.last_name,
+        "birth_date": new_user.birth_date,
+        "gender": new_user.gender,
+        "country": new_user.country,
+        "street": new_user.street,
+        "balance": new_user.balance
+    }
+    
+    # This is added to silence linter errors
+    if SECRET_KEY is None:
+        print("SECRET_KEY == None! SHOULD NEVER HAPPEN")
+        return
+    secret: str = SECRET_KEY
+    token = jwt.encode(dto, secret)
+    
+    return jsonify({"message": "Successfully registered", "token": token}), 200
 
 
 
