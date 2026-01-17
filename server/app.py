@@ -105,7 +105,7 @@ def ping_reachable():
 
 
 
-@app.route("/login", methods = ["POST"])
+@app.route("/auth/login", methods = ["POST"])
 def user_login():
     if "user" in session and session["user"] != "":
         return jsonify({"message": "Already logged in"}), 400
