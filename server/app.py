@@ -5,6 +5,7 @@ from base64 import standard_b64decode as base64encode
 from typing import Optional
 from dotenv import load_dotenv
 from flask import Flask, request, session, flash, jsonify
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, Float, String, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -54,6 +55,7 @@ except Exception as error:
 print("Local .env is loaded")
 
 app = Flask(__name__)
+CORS(app)
 
 SECRET_KEY = getenv("SECRET_KEY")
 DB_URI = getenv("SQLALCHEMY_DATABASE_URI")
