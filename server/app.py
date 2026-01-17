@@ -113,13 +113,13 @@ def user_login():
     if request.method != "POST":
         return jsonify({"message": "Invalid HTTP method"}), 400
         
+    # is_email_empty = user_email is None or user_email == ""
+    # is_password_empty = unhashed_password is None or unhashed_password == ""
+    if ("email" not in request.form or "password" not in request.form):
+        return jsonify({"message": "Invalid form request"}), 400
+
     user_email = request.form["email"]
     unhashed_password = request.form["password"]
-
-    is_email_empty = user_email is None or user_email == ""
-    is_password_empty = unhashed_password is None or unhashed_password == ""
-    if (is_email_empty or is_password_empty):
-        return jsonify({"message": "Invalid form request"}), 400
         
     if not is_email_valid(user_email):
         flash("Invalid email", "error")
@@ -135,6 +135,9 @@ def user_login():
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
     
     query: User = _query
+    print(query.password)
+    print(unhashed_password)
+    print(bcrypt.hashpw(unhashed_password.encode(), SALT))
     is_password_correct = bcrypt.checkpw(
         unhashed_password.encode("utf-8"),
         query.password.encode("utf-8")
@@ -167,7 +170,7 @@ def user_login():
 
 
 
-@app.route("/register", methods = ["POST"])
+@app.route("/auth/register", methods = ["POST"])
 def user_register():
     if "user" in session and session["user"] != "":
         return jsonify({"message": "Logged in; must logout first"}), 400
@@ -175,15 +178,15 @@ def user_register():
     if request.method != "POST":
         return jsonify({"message": "Invalid HTTP method"}), 400
         
+    is_email_empty = "email" not in request.form
+    is_password_empty = "password" not in request.form
+    is_repeated_empty = "password_repeated" not in request.form
+    if (is_email_empty or is_password_empty or is_repeated_empty):
+        return jsonify({"message": "Invalid form request"}), 400
+
     user_email = request.form["email"]
     unhashed_password = request.form["password"]
     repeated_password = request.form["password_repeated"]
-
-    is_email_empty = user_email is None or user_email == ""
-    is_password_empty = unhashed_password is None or unhashed_password == ""
-    is_repeated_empty = repeated_password is None or repeated_password == ""
-    if (is_email_empty or is_password_empty or is_repeated_empty):
-        return jsonify({"message": "Invalid form request"}), 400
         
     if not is_email_valid(user_email):
         flash("Invalid email", "error")
@@ -207,12 +210,19 @@ def user_register():
         
     hashed_password = str(bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT))
     role = request.form["role"] if "role" in request.form else "USER"
-    first_name = request.form["first_name"]
-    last_name = request.form["last_name"]
-    birth_date = datetime.strptime(request.form["birth_date"], "%Y-%m-%d")
-    gender = request.form["gender"]
-    country = request.form["country"]
-    street = request.form["street"]
+    first_name = request.form.get("first_name")
+    last_name = request.form.get("last_name")
+    _birth_date = request.form.get("birth_date")
+    if _birth_date is None:
+        _birth_date = "1900-01-01"
+    birth_date = datetime.strptime(_birth_date, "%Y-%m-%d")
+    gender = request.form.get("gender")
+    country = request.form.get("country")
+    if country is None:
+        country = ""
+    street = request.form.get("street")
+    if street is None:
+        street = ""
     
     new_user = User()
     new_user.email = user_email
@@ -223,10 +233,7 @@ def user_register():
     new_user.birth_date = birth_date
     new_user.gender = gender
     new_user.country = str(base64encode(country))
-    new_user.street = str(base64encode(street))
-    
-    db.session.add(new_user)
-    db.session.commit()
+    new_user.street = str(base64encode(street))    
     
     dto = {
         "id": new_user.id,
@@ -234,7 +241,7 @@ def user_register():
         "role": new_user.role,
         "first_name": new_user.first_name,
         "last_name": new_user.last_name,
-        "birth_date": new_user.birth_date,
+        "birth_date": datetime.strftime(birth_date, "%Y-%m-%d"),
         "gender": new_user.gender,
         "country": new_user.country,
         "street": new_user.street,
@@ -247,6 +254,10 @@ def user_register():
         return
     secret: str = SECRET_KEY
     token = jwt.encode(dto, secret)
+    
+    # Add user AFTER JWT encoding is done
+    db.session.add(new_user)
+    db.session.commit()
     
     return jsonify({"message": "Successfully registered", "token": token}), 200
 
