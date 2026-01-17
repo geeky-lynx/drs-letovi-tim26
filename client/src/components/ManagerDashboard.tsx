@@ -1,0 +1,1 @@
+export const ManagerDashboard = () => <h2>Manager dashboard</h2>;
