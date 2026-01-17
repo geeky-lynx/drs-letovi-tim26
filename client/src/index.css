@@ -66,3 +66,10 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+
+
+/* Temporary fix for me; without this, inputs are the same color as bg-color */
+input, select {
+    color: #3c2a5e;
+}
