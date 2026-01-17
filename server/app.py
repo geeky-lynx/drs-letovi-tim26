@@ -86,7 +86,7 @@ class User(db.Model):
     
     id: Mapped[int]                        = mapped_column(Integer, primary_key = True)
     email: Mapped[str]                     = mapped_column(String(50), unique = True, nullable = False)
-    password: Mapped[str]                  = mapped_column(String(500), nullable = False)
+    password: Mapped[bytes]                = mapped_column(String(500), nullable = False)
     role: Mapped[str]                      = mapped_column(String(8), nullable = False) # USER | MANAGER | ADMIN
     first_name: Mapped[Optional[str]]      = mapped_column(String(25))
     last_name: Mapped[Optional[str]]       = mapped_column(String(25))
@@ -106,7 +106,6 @@ def ping_reachable():
     return "<p>Server is reachable</p>"
 
 
-
 @app.route("/auth/login", methods = ["POST"])
 def user_login():
     if "user" in session and session["user"] != "":
@@ -114,6 +113,8 @@ def user_login():
     
     if request.method != "POST":
         return jsonify({"message": "Invalid HTTP method"}), 400
+        
+    req_data = request.get_json()
         
     # is_email_empty = user_email is None or user_email == ""
     # is_password_empty = unhashed_password is None or unhashed_password == ""
@@ -137,25 +138,33 @@ def user_login():
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
     
     query: User = _query
-    print(query.password)
-    print(unhashed_password)
-    print(bcrypt.hashpw(unhashed_password.encode(), SALT))
-    is_password_correct = bcrypt.checkpw(
-        unhashed_password.encode("utf-8"),
-        query.password.encode("utf-8")
-    )
+    plain: bytes = unhashed_password.encode("utf-8")
+    hashed = query.password
+    is_password_correct = False
+    try:
+        is_password_correct = bcrypt.checkpw(
+            plain,
+            bytes.fromhex(hashed[2:])
+        )
+    except ValueError as error:
+        print("ValueError EXCEPTION: hashes not matched")
+        print("Stacktrace:")
+        print(error)
     
-    if query is None or is_password_correct:
+    if query is None or not is_password_correct:
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
     
+    birth_date = query.birth_date
+    if birth_date is None:
+        birth_date = datetime.fromisoformat("1900-01-01")
     dto = {
         "id": query.id,
         "email": query.email,
         "role": query.role,
         "first_name": query.first_name,
         "last_name": query.last_name,
-        "birth_date": query.birth_date,
+        "birth_date": datetime.strftime(birth_date, "%Y-%m-%d"),
         "gender": query.gender,
         "country": query.country,
         "street": query.street,
@@ -210,7 +219,9 @@ def user_register():
         flash("Passwords don\'t match", "error")
         return jsonify({"message": "Passwords don\'t match"}), 400
         
-    hashed_password = str(bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT))
+    hashed_password = bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT)
+    print("register: hashed password")
+    print(hashed_password)
     role = request.form["role"] if "role" in request.form else "USER"
     first_name = request.form.get("first_name")
     last_name = request.form.get("last_name")
