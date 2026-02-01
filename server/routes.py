@@ -8,7 +8,7 @@ import jwt
 
 from setup import app, db, SALT, SECRET_KEY
 from models import User
-from input_validator import is_email_valid, is_password_valid
+from input_validator import is_email_valid, is_password_valid, is_password_matching
 
 
 
@@ -25,8 +25,6 @@ def user_login():
 
     req_data = request.get_json()
 
-    # is_email_empty = user_email is None or user_email == ""
-    # is_password_empty = unhashed_password is None or unhashed_password == ""
     if ("email" not in req_data or "password" not in req_data):
         return jsonify({"message": "Invalid form request"}), 400
 
@@ -47,45 +45,15 @@ def user_login():
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
 
     query: User = _query
-    plain: bytes = unhashed_password.encode("utf-8")
-    hashed = query.password
-    is_password_correct = False
-    try:
-        is_password_correct = bcrypt.checkpw(
-            plain,
-            bytes.fromhex(hashed[2:])
-        )
-    except ValueError as error:
-        print("ValueError EXCEPTION: hashes not matched")
-        print("Stacktrace:")
-        print(error)
+    is_password_correct = is_password_matching(unhashed_password, query.password)
 
-    if query is None or not is_password_correct:
+    if not is_password_correct:
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
 
-    birth_date = query.birth_date
-    if birth_date is None:
-        birth_date = datetime.fromisoformat("1900-01-01")
-    dto = {
-        "id": query.id,
-        "email": query.email,
-        "role": query.role,
-        "first_name": query.first_name,
-        "last_name": query.last_name,
-        "birth_date": datetime.strftime(birth_date, "%Y-%m-%d"),
-        "gender": query.gender,
-        "country": query.country,
-        "street": query.street,
-        "balance": query.balance
-    }
-
-    # This is added to silence linter errors
-    if SECRET_KEY is None:
-        print("SECRET_KEY == None! SHOULD NEVER HAPPEN")
-        return
-    secret: str = SECRET_KEY
-    token = jwt.encode(dto, secret)
+    dto = query.to_dto()
+    token = jwt.encode(dto, SECRET_KEY)
+    
     return jsonify({"message": "Successfully logged in", "token": token}), 200
 
 
@@ -156,25 +124,8 @@ def user_register():
     new_user.country = str(base64encode(country))
     new_user.street = str(base64encode(street))    
 
-    dto = {
-        "id": new_user.id,
-        "email": new_user.email,
-        "role": new_user.role,
-        "first_name": new_user.first_name,
-        "last_name": new_user.last_name,
-        "birth_date": datetime.strftime(birth_date, "%Y-%m-%d"),
-        "gender": new_user.gender,
-        "country": new_user.country,
-        "street": new_user.street,
-        "balance": new_user.balance
-    }
-
-    # This is added to silence linter errors
-    if SECRET_KEY is None:
-        print("SECRET_KEY == None! SHOULD NEVER HAPPEN")
-        return
-    secret: str = SECRET_KEY
-    token = jwt.encode(dto, secret)
+    dto = new_user.to_dto()
+    token = jwt.encode(dto, SECRET_KEY)
 
     # Add user AFTER JWT encoding is done
     db.session.add(new_user)

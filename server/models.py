@@ -25,3 +25,21 @@ class User(db.Model):
 
     def __repr__(self) -> str:
         return f"User{{id={self.id!r}, email={self.email!r}}}"
+
+    # Utility methods
+    def to_dto(self):
+        bdate = self.birth_date
+        if bdate is None:
+            bdate = datetime.fromisoformat("1900-01-01")
+        return {
+            "id": self.id,
+            "email": self.email,
+            "role": self.role,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "birth_date": datetime.strftime(bdate, "%Y-%m-%d"),
+            "gender": self.gender,
+            "country": self.country,
+            "street": self.street,
+            "balance": self.balance
+        }
