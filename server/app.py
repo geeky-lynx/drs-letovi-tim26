@@ -69,13 +69,13 @@ if DB_URI is None:
     print("DB_URI == None! Can\'t proceed with running Flask instance")
     exit(2)
 
-    
+
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
 app.secret_key = SECRET_KEY
 
 class DbBase(DeclarativeBase):
     pass
-    
+
 db = SQLAlchemy(app, model_class = DbBase)
 SALT = bcrypt.gensalt()
 
@@ -83,11 +83,12 @@ SALT = bcrypt.gensalt()
 
 class User(db.Model):
     __tablename__ = "users"
-    
+
     id: Mapped[int]                        = mapped_column(Integer, primary_key = True)
     email: Mapped[str]                     = mapped_column(String(50), unique = True, nullable = False)
     password: Mapped[bytes]                = mapped_column(String(500), nullable = False)
     role: Mapped[str]                      = mapped_column(String(8), nullable = False) # USER | MANAGER | ADMIN
+    pfp_url: Mapped[str]                   = mapped_column(String(256))
     first_name: Mapped[Optional[str]]      = mapped_column(String(25))
     last_name: Mapped[Optional[str]]       = mapped_column(String(25))
     birth_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -110,33 +111,33 @@ def ping_reachable():
 def user_login():
     if "user" in session and session["user"] != "":
         return jsonify({"message": "Already logged in"}), 400
-    
+
     if request.method != "POST":
         return jsonify({"message": "Invalid HTTP method"}), 400
-        
+
     req_data = request.get_json()
-        
+
     # is_email_empty = user_email is None or user_email == ""
     # is_password_empty = unhashed_password is None or unhashed_password == ""
-    if ("email" not in request.form or "password" not in request.form):
+    if ("email" not in req_data or "password" not in req_data):
         return jsonify({"message": "Invalid form request"}), 400
 
-    user_email = request.form["email"]
-    unhashed_password = request.form["password"]
-        
+    user_email = req_data["email"]
+    unhashed_password = req_data["password"]
+
     if not is_email_valid(user_email):
         flash("Invalid email", "error")
         return jsonify({"message": "Incorrect email"}), 400
-        
+
     if not is_password_valid(unhashed_password):
         flash("Invalid password", "error")
         return jsonify({"message": "Incorrect password"}), 400
-    
+
     _query: (User | None) = User.query.filter_by(email = user_email).first()
     if _query is None:
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
-    
+
     query: User = _query
     plain: bytes = unhashed_password.encode("utf-8")
     hashed = query.password
@@ -150,11 +151,11 @@ def user_login():
         print("ValueError EXCEPTION: hashes not matched")
         print("Stacktrace:")
         print(error)
-    
+
     if query is None or not is_password_correct:
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
-    
+
     birth_date = query.birth_date
     if birth_date is None:
         birth_date = datetime.fromisoformat("1900-01-01")
@@ -170,7 +171,7 @@ def user_login():
         "street": query.street,
         "balance": query.balance
     }
-    
+
     # This is added to silence linter errors
     if SECRET_KEY is None:
         print("SECRET_KEY == None! SHOULD NEVER HAPPEN")
@@ -185,58 +186,60 @@ def user_login():
 def user_register():
     if "user" in session and session["user"] != "":
         return jsonify({"message": "Logged in; must logout first"}), 400
-    
+
     if request.method != "POST":
         return jsonify({"message": "Invalid HTTP method"}), 400
-        
-    is_email_empty = "email" not in request.form
-    is_password_empty = "password" not in request.form
-    is_repeated_empty = "password_repeated" not in request.form
+
+    req_data = request.get_json()
+
+    is_email_empty = "email" not in req_data
+    is_password_empty = "password" not in req_data
+    is_repeated_empty = "password_repeated" not in req_data
     if (is_email_empty or is_password_empty or is_repeated_empty):
         return jsonify({"message": "Invalid form request"}), 400
 
-    user_email = request.form["email"]
-    unhashed_password = request.form["password"]
-    repeated_password = request.form["password_repeated"]
-        
+    user_email = req_data["email"]
+    unhashed_password = req_data["password"]
+    repeated_password = req_data["password_repeated"]
+
     if not is_email_valid(user_email):
         flash("Invalid email", "error")
         return jsonify({"message": "Incorrect email"}), 400
-        
+
     if not is_password_valid(unhashed_password):
         flash("Invalid password", "error")
         return jsonify({"message": "Incorrect password"}), 400
-        
+
     if not is_password_valid(repeated_password):
         flash("Invalid repeated password", "error")
         return jsonify({"message": "Incorrect repeated password"}), 400
-        
+
     old_user = User.query.filter_by(email = user_email).first()
     if old_user is not None:
         return jsonify({"message": "User with that email already exists"}), 400
-        
+
     if unhashed_password != repeated_password:
         flash("Passwords don\'t match", "error")
         return jsonify({"message": "Passwords don\'t match"}), 400
-        
+
     hashed_password = bcrypt.hashpw(unhashed_password.encode("utf-8"), SALT)
     print("register: hashed password")
     print(hashed_password)
-    role = request.form["role"] if "role" in request.form else "USER"
-    first_name = request.form.get("first_name")
-    last_name = request.form.get("last_name")
-    _birth_date = request.form.get("birth_date")
+    role = req_data["role"] if "role" in req_data else "USER"
+    first_name = req_data.get("first_name")
+    last_name = req_data.get("last_name")
+    _birth_date = req_data.get("birth_date")
     if _birth_date is None:
         _birth_date = "1900-01-01"
     birth_date = datetime.strptime(_birth_date, "%Y-%m-%d")
-    gender = request.form.get("gender")
-    country = request.form.get("country")
+    gender = req_data.get("gender")
+    country = req_data.get("country")
     if country is None:
         country = ""
-    street = request.form.get("street")
+    street = req_data.get("street")
     if street is None:
         street = ""
-    
+
     new_user = User()
     new_user.email = user_email
     new_user.password = hashed_password
@@ -247,7 +250,7 @@ def user_register():
     new_user.gender = gender
     new_user.country = str(base64encode(country))
     new_user.street = str(base64encode(street))    
-    
+
     dto = {
         "id": new_user.id,
         "email": new_user.email,
@@ -260,18 +263,18 @@ def user_register():
         "street": new_user.street,
         "balance": new_user.balance
     }
-    
+
     # This is added to silence linter errors
     if SECRET_KEY is None:
         print("SECRET_KEY == None! SHOULD NEVER HAPPEN")
         return
     secret: str = SECRET_KEY
     token = jwt.encode(dto, secret)
-    
+
     # Add user AFTER JWT encoding is done
     db.session.add(new_user)
     db.session.commit()
-    
+
     return jsonify({"message": "Successfully registered", "token": token}), 200
 
 
