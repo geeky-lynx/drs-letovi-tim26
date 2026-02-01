@@ -6,9 +6,12 @@ name = "pypi"
 [packages]
 bcrypt = "*"
 dotenv = "*"
+jwt = "*"
+sqlalchemy = "*"
+flask = "*"
+flask-cors = "*"
 flask-sqlalchemy = "*"
 psycopg2-binary = "*"
-flask-cors = "*"
 
 [dev-packages]
 
