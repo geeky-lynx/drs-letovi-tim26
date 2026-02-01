@@ -11,6 +11,7 @@ from models import User
 from input_validator import is_email_valid, is_password_valid
 
 
+
 @app.route("/ping-reachable")
 def ping_reachable():
     return "<p>Server is reachable</p>"
@@ -21,9 +22,6 @@ def ping_reachable():
 def user_login():
     if "user" in session and session["user"] != "":
         return jsonify({"message": "Already logged in"}), 400
-
-    if request.method != "POST":
-        return jsonify({"message": "Invalid HTTP method"}), 400
 
     req_data = request.get_json()
 
@@ -96,9 +94,6 @@ def user_login():
 def user_register():
     if "user" in session and session["user"] != "":
         return jsonify({"message": "Logged in; must logout first"}), 400
-
-    if request.method != "POST":
-        return jsonify({"message": "Invalid HTTP method"}), 400
 
     req_data = request.get_json()
 
