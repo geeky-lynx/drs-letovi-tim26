@@ -35,6 +35,7 @@ class User(db.Model):
             "id": self.id,
             "email": self.email,
             "role": self.role,
+            "pfp_url": self.pfp_url,
             "first_name": self.first_name,
             "last_name": self.last_name,
             "birth_date": datetime.strftime(bdate, "%Y-%m-%d"),
