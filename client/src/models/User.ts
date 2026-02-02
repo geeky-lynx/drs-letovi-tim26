@@ -4,19 +4,16 @@ import { Gender } from '../enums/Gender';
 
 export interface User {
   id: string;
-  firstName: string;
-  lastName: string;
   email: string;
   role: UserRole;
-  dateOfBirth: string;
-  gender: Gender;
-  country: string;
-  street: string;
-  number: string;
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  country?: string;
+  street?: string;
   accountBalance: number;
   profileImage?: string;  
-  createdAt: string;
-  updatedAt?: string;
 }
 
 export interface LoginRequest {

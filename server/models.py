@@ -14,7 +14,7 @@ class User(db.Model):
     email: Mapped[str]                     = mapped_column(String(50), unique = True, nullable = False)
     password: Mapped[bytes]                = mapped_column(String(500), nullable = False)
     role: Mapped[str]                      = mapped_column(String(8), nullable = False) # USER | MANAGER | ADMIN
-    pfp_url: Mapped[str]                   = mapped_column(String(256))
+    pfp_url: Mapped[Optional[str]]         = mapped_column(String(256))
     first_name: Mapped[Optional[str]]      = mapped_column(String(25))
     last_name: Mapped[Optional[str]]       = mapped_column(String(25))
     birth_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -35,12 +35,12 @@ class User(db.Model):
             "id": self.id,
             "email": self.email,
             "role": self.role,
-            "pfp_url": self.pfp_url,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "birth_date": datetime.strftime(bdate, "%Y-%m-%d"),
+            "profileImage": self.pfp_url,
+            "firstName": self.first_name,
+            "lastName": self.last_name,
+            "dateOfBirth": datetime.strftime(bdate, "%Y-%m-%d"),
             "gender": self.gender,
             "country": self.country,
             "street": self.street,
-            "balance": self.balance
+            "accountBalance": self.balance
         }
