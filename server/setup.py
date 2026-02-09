@@ -36,6 +36,8 @@ if _DB_URI is None:
 IS_DEV = True if _IS_DEV_STR is str and _IS_DEV_STR.lower() in ["1", "true"] else False
 SECRET_KEY: str = _SECRET_KEY
 DB_URI: str = _DB_URI
+# User can't login for given amount of seconds if all attempts've been used
+LOGIN_TIMEOUT_SECONDS = 60 if IS_DEV else 900
 
 
 

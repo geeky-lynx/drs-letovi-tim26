@@ -1,14 +1,19 @@
 from datetime import datetime
 from base64 import standard_b64decode as base64encode
+from functools import total_ordering
 
 from flask import request, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import bcrypt
 import jwt
 
-from setup import app, db, SALT, SECRET_KEY
+from setup import app, db, SALT, SECRET_KEY, LOGIN_TIMEOUT_SECONDS
 from models import User
 from input_validator import is_email_valid, is_password_valid, is_password_matching
+
+
+
+failed_logins = {}
 
 
 
@@ -31,13 +36,27 @@ def user_login():
     user_email = req_data["email"]
     unhashed_password = req_data["password"]
 
+    # Check if the user has maxed out its attempts (3) for a time
+    last_attempt = failed_logins.get(user_email)
+    if last_attempt is not None:
+        last_time = last_attempt["last_time"]
+        round = last_attempt["round"]
+        diff = datetime.now() - last_time
+        if diff.total_seconds() < LOGIN_TIMEOUT_SECONDS and round >= 3:
+            flash("Too many login attempts. Try again later", "error")
+            return jsonify({"message": "Too many login attempts. Try again later"}), 400
+
+        # The user has waited enough: Allow to try again
+        if diff.total_seconds() > LOGIN_TIMEOUT_SECONDS:
+            last_attempt.pop(user_email)
+
     if not is_email_valid(user_email):
         flash("Invalid email", "error")
-        return jsonify({"message": "Incorrect email"}), 400
+        return jsonify({"message": "Invalid email"}), 400
 
     if not is_password_valid(unhashed_password):
         flash("Invalid password", "error")
-        return jsonify({"message": "Incorrect password"}), 400
+        return jsonify({"message": "Invalid password"}), 400
 
     _query: (User | None) = User.query.filter_by(email = user_email).first()
     if _query is None:
@@ -48,12 +67,20 @@ def user_login():
     is_password_correct = is_password_matching(unhashed_password, query.password)
 
     if not is_password_correct:
+        attempts = failed_logins.get(user_email)
+        if attempts is None:
+            attempts = {"last_time": datetime.now(), "round": 0}
+        else:
+            attempts["last_time"] = datetime.now()
+            attempts["round"] += 1
+        failed_logins[user_email] = attempts
+
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
 
     dto = query.to_dto()
     token = jwt.encode(dto, SECRET_KEY)
-    
+
     return jsonify({"message": "Successfully logged in", "token": token}), 200
 
 
