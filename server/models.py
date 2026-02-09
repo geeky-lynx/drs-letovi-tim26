@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import DateTime, Float, String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
-from typing import Optional
+from typing import Optional, Any
 
 from setup import db
 
@@ -27,7 +27,7 @@ class User(db.Model):
         return f"User{{id={self.id!r}, email={self.email!r}}}"
 
     # Utility methods
-    def to_dto(self):
+    def to_dto(self) -> dict[str, Any]:
         bdate = self.birth_date
         if bdate is None:
             bdate = datetime.fromisoformat("1900-01-01")
