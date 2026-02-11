@@ -1,1 +1,0 @@
-export const AdminDashboard = () => <h2>Admin dashboard</h2>;

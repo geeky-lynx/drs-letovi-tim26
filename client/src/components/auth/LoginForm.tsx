@@ -1,241 +1,124 @@
-import { useState } from "react";
-import { useAuth } from "../../hooks/UseAuth";
+import React, { useEffect, useState } from "react";
+import { IAuthAPI } from "../../api/auth/IAuthAPI";
+import { LoginUserDTO } from "../../models/auth/LoginUserDTO";
+import { useAuth } from "../../hooks/useAuthHook";
 import { useNavigate } from "react-router-dom";
 
-const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    padding: '2rem'
-  } as React.CSSProperties,
-
-  formCard: {
-    background: 'white',
-    borderRadius: '20px',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-    padding: '3rem',
-    width: '100%',
-    maxWidth: '450px',
-    backdropFilter: 'blur(10px)'
-  } as React.CSSProperties,
-
-  title: {
-    margin: '0 0 0.5rem 0',
-    color: '#1e3a8a',
-    fontSize: '2.5rem',
-    fontWeight: 700,
-    textAlign: 'center',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text'
-  } as React.CSSProperties,
-
-  subtitle: {
-    margin: '0 0 2.5rem 0',
-    color: '#64748b',
-    fontSize: '0.95rem',
-    textAlign: 'center'
-  } as React.CSSProperties,
-
-  inputGroup: {
-    marginBottom: '1.5rem',
-    position: 'relative'
-  } as React.CSSProperties,
-
-  inputLabel: {
-    display: 'block',
-    marginBottom: '0.5rem',
-    color: '#475569',
-    fontSize: '0.875rem',
-    fontWeight: 600,
-    letterSpacing: '0.025em'
-  } as React.CSSProperties,
-
-  input: {
-    width: '100%',
-    padding: '0.875rem 1rem',
-    border: '2px solid #e2e8f0',
-    borderRadius: '12px',
-    fontSize: '1rem',
-    transition: 'all 0.3s ease',
-    outline: 'none',
-    backgroundColor: '#f8fafc',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit'
-  } as React.CSSProperties,
-
-  inputFocus: {
-    border: '2px solid #3b82f6',
-    backgroundColor: 'white',
-    boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.1)'
-  } as React.CSSProperties,
-
-  button: {
-    width: '100%',
-    padding: '1rem',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '1.05rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    marginTop: '0.5rem',
-    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
-    fontFamily: 'inherit',
-    letterSpacing: '0.025em'
-  } as React.CSSProperties,
-
-  buttonHover: {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 8px 25px rgba(59, 130, 246, 0.5)'
-  } as React.CSSProperties,
-
-  buttonActive: {
-    transform: 'translateY(0)',
-    boxShadow: '0 2px 10px rgba(59, 130, 246, 0.3)'
-  } as React.CSSProperties,
-
-  footer: {
-    marginTop: '2rem',
-    textAlign: 'center',
-    paddingTop: '1.5rem',
-    borderTop: '1px solid #e2e8f0'
-  } as React.CSSProperties,
-
-  footerText: {
-    margin: 0,
-    color: '#64748b',
-    fontSize: '0.9rem'
-  } as React.CSSProperties,
-
-  link: {
-    color: '#3b82f6',
-    textDecoration: 'none',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'color 0.3s ease'
-  } as React.CSSProperties,
-
-  linkHover: {
-    color: '#8b5cf6',
-    textDecoration: 'underline'
-  } as React.CSSProperties,
-
-  icon: {
-    position: 'absolute',
-    right: '1rem',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    color: '#94a3b8',
-    pointerEvents: 'none'
-  } as React.CSSProperties
+type LoginFormProps = {
+  authAPI: IAuthAPI;
 };
 
-export const LoginForm = () => {
-  const { login } = useAuth();
+export const LoginForm: React.FC<LoginFormProps> = ({ authAPI }) => {
+  const [formData, setFormData] = useState<LoginUserDTO>({
+    email: "",
+    password: "",
+  });
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [buttonHovered, setButtonHovered] = useState(false);
-  const [buttonActive, setButtonActive] = useState(false);
-  const [linkHovered, setLinkHovered] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await login(email, password);
-    navigate("/");
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+    setError("");
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const response = await authAPI.login(formData);
+
+      if (response.success && response.token) {
+        login(response.token);
+        navigate("/dashboard");
+      } else {
+        setError(response.message || "Login failed. Please try again.");
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "An error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if(isAuthenticated)
+        navigate("/dashboard");
+  })
+
   return (
-    <div style={styles.container}>
-      <div style={styles.formCard}>
-        <h2 style={styles.title}>Dobrodošli nazad! ✈️</h2>
-        <p style={styles.subtitle}>Prijavite se na svoj nalog</p>
-        
-        <form onSubmit={submit}>
-          {/* Email Input */}
-          <div style={styles.inputGroup}>
-            <label style={styles.inputLabel}>Email adresa</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
-              placeholder="vas@email.com"
-              style={{
-                ...styles.input,
-                ...(emailFocused ? styles.inputFocus : {})
-              }}
-              required
-            />
-          </div>
-
-          {/* Password Input */}
-          <div style={styles.inputGroup}>
-            <label style={styles.inputLabel}>Lozinka</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              placeholder="••••••••"
-              style={{
-                ...styles.input,
-                ...(passwordFocused ? styles.inputFocus : {})
-              }}
-              required
-            />
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            style={{
-              ...styles.button,
-              ...(buttonHovered ? styles.buttonHover : {}),
-              ...(buttonActive ? styles.buttonActive : {})
-            }}
-            onMouseEnter={() => setButtonHovered(true)}
-            onMouseLeave={() => {
-              setButtonHovered(false);
-              setButtonActive(false);
-            }}
-            onMouseDown={() => setButtonActive(true)}
-            onMouseUp={() => setButtonActive(false)}
-          >
-            Prijavi se
-          </button>
-        </form>
-
-        {/* Footer */}
-        <div style={styles.footer}>
-          <p style={styles.footerText}>
-            Nemate nalog?{' '}
-            <span
-              style={{
-                ...styles.link,
-                ...(linkHovered ? styles.linkHover : {})
-              }}
-              onClick={() => navigate('/register')}
-              onMouseEnter={() => setLinkHovered(true)}
-              onMouseLeave={() => setLinkHovered(false)}
-            >
-              Registrujte se
-            </span>
-          </p>
-        </div>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div>
+        <label htmlFor="email" style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: 600 }}>
+          Email
+        </label>
+        <input
+          type="text"
+          id="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="Enter your email"
+          required
+          disabled={isLoading}
+        />
       </div>
-    </div>
+
+      <div>
+        <label htmlFor="password" style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: 600 }}>
+          Password
+        </label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          placeholder="Enter your password"
+          required
+          disabled={isLoading}
+        />
+      </div>
+
+      {error && (
+        <div
+          className="card"
+          style={{
+            padding: "12px 16px",
+            backgroundColor: "rgba(196, 43, 28, 0.15)",
+            borderColor: "var(--win11-close-hover)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--win11-close-hover)">
+              <path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 1a5 5 0 110 10A5 5 0 018 3zm0 2a.5.5 0 01.5.5v3a.5.5 0 01-1 0v-3A.5.5 0 018 5zm0 6a.75.75 0 110 1.5.75.75 0 010-1.5z"/>
+            </svg>
+            <span style={{ fontSize: "13px", color: "var(--win11-text-primary)" }}>{error}</span>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        className="btn btn-accent"
+        disabled={isLoading}
+        style={{ marginTop: "8px" }}
+      >
+        {isLoading ? (
+          <div className="flex items-center gap-2">
+            <div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }}></div>
+            <span>Logging in...</span>
+          </div>
+        ) : (
+          "Login"
+        )}
+      </button>
+    </form>
   );
 };

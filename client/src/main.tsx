@@ -1,18 +1,18 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router";
-
-import "./index.css";
+import React from "react";
+import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
+import "./index.css";
+import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext.tsx";
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
     <BrowserRouter>
-      {/* Satan gotta really respect the person who created this forsaken "framework" */}
       <AuthProvider>
-        <App />
+        <div style={{ paddingTop: 0 }}>
+          <App />
+        </div>
       </AuthProvider>
     </BrowserRouter>
-  </StrictMode>
+  </React.StrictMode>
 );

@@ -1,1 +1,0 @@
-export const UserDashboard = () => <h2>User dashboard</h2>;

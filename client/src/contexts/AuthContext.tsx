@@ -1,97 +1,71 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import type { ReactNode, FC } from "react";
-import { storage } from "../helpers/Storage";
-import { authHelpers } from "../helpers/Auth";
+import { ReactNode, useState, useEffect, createContext } from "react";
+import { decodeJWT } from "../helpers/decode_jwt";
+import { isTokenExpired } from "../helpers/expiration_jwt_validate";
+import { readValueByKey, removeValueByKey, saveValueByKey } from "../helpers/local_storage";
+import { AuthContextType } from "../types/AuthContextType";
+import { AuthTokenClaimsType } from "../types/AuthTokenClaimsType";
 
-interface AuthContextType {
-  user: any;
-  isAuthenticated: boolean;
-  role: any;
-  login: (email: string, password: string) => Promise<void>;
-  register: (userData: any) => Promise<void>;
-  logout: () => void;
-}
+// Create the context
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<AuthTokenClaimsType | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<any>(storage.getUser());
-
+  // Load token from localStorage on mount
   useEffect(() => {
-    if (!user && storage.getToken()) {
-      authHelpers.getProfile()
-        .then((res) => {
-          setUser(res.data);
-          storage.setUser(res.data);
-        })
-        .catch((error) => {
-          console.error('Invalid token:', error);
-          storage.removeToken();
-          storage.removeUser();
-        });
-    }
-  }, [user]);
+    const savedToken = readValueByKey("authToken");
 
-  const login = async (email: string, password: string) => {
-    try {
-      const res = await authHelpers.login({ email, password });
-      storage.setToken(res.data.token);
-      storage.setUser(res.data.user);
-      setUser(res.data.user);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Greška pri prijavljivanju';
-      throw new Error(errorMessage);
-    }
-  };
+    if (savedToken) {
+      if (isTokenExpired(savedToken)) {
+        removeValueByKey("authToken");
+        setIsLoading(false);
+        return;
+      }
 
-  const register = async (userData: any) => {
-    try {
-      const res = await authHelpers.register(userData);
-      storage.setToken(res.data.token);
-      storage.setUser(res.data.user);
-      setUser(res.data.user);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Greška pri registraciji';
-      throw new Error(errorMessage);
+      const claims = decodeJWT(savedToken);
+      if (claims) {
+        setToken(savedToken);
+        setUser(claims);
+      } else {
+        removeValueByKey("authToken");
+      }
+    }
+
+    setIsLoading(false);
+  }, []);
+
+  const login = (newToken: string) => {
+    const claims = decodeJWT(newToken);
+
+    if (claims && !isTokenExpired(newToken)) {
+      setToken(newToken);
+      setUser(claims);
+      saveValueByKey("authToken", newToken);
+    } else {
+      console.error("Invalid or expired token");
     }
   };
 
-  const logout = async () => {
-    try {
-      await authHelpers.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      storage.removeToken();
-      storage.removeUser();
-      setUser(null);
-    }
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    removeValueByKey("authToken");
   };
 
-  return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isAuthenticated: !!user,
-        role: user?.role,
-        login, 
-        register,
-        logout 
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const isAuthenticated = !!user && !!token;
+
+  const value: AuthContextType = {
+    user,
+    token,
+    login,
+    logout,
+    isAuthenticated,
+    isLoading,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuthContext = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuthContext must be used within AuthProvider");
-  }
-  return ctx;
-};
-
-
-
-
+export default AuthContext;
