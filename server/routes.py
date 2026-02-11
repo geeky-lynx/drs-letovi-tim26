@@ -1,9 +1,9 @@
 from datetime import datetime
 from base64 import standard_b64decode as base64encode
-from functools import total_ordering
 
 from flask import request, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+import requests
 import bcrypt
 import jwt
 
@@ -156,6 +156,8 @@ def user_register():
 
 
 
+# Admin routes
+
 @app.route("/admin/get-all-users")
 def get_all_users():
     req_data = request.get_json()
@@ -266,6 +268,7 @@ def update_user_info():
 
 
 
+# User routes
 
 @app.route("/user/update-info")
 def update_user_info__not_admin():
@@ -325,3 +328,96 @@ def update_user_info__not_admin():
     db.session.commit()
 
     return jsonify({"message": "Successfully updated the user"}), 200
+
+
+
+@app.route("/user/all_purchases")
+def user_get_purchases():
+    pass
+
+
+
+# Airlines routes
+
+@app.route("/airlines/get", methods = ["GET"])
+def airlines_get():
+    data = requests.get("")
+    pass
+
+
+
+@app.route("/airlines/set", methods = ["POST"])
+def airlines_set():
+    pass
+
+
+
+# Flights routes
+
+@app.route("/flights/get-all-that", methods = ["GET"])
+def flights_get_all():
+    pass
+
+
+
+@app.route("/flights/new", methods = ["POST"])
+def flights_create_new():
+    pass
+
+
+
+@app.route("/flights/update", methods = ["PUT"])
+def flights_update_one():
+    pass
+    
+    
+
+@app.route("/flights/remove", methods = ["DELETE"])
+def flights_remove_one():
+    pass
+
+
+
+@app.route("/flights/approve", methods = ["POST"])
+def flights_approve():
+    pass
+
+
+
+@app.route("/flights/reject", methods = ["POST"])
+def flights_reject():
+    pass
+
+
+
+@app.route("/flights/cancel", methods = ["POST"])
+def flights_cancel():
+    pass
+
+
+
+@app.route("/flights/buyers", methods = ["GET"])
+def flights_buyers():
+    pass
+
+
+
+# Purchases routes
+
+@app.route("/purchases/buy", methods = ["GET"])
+def purchases_buy():
+    pass
+
+
+
+# Ratings routes
+
+@app.route("/ratings/get", methods = ["GET"])
+def ratings_get_all():
+    pass
+
+
+
+@app.route("/ratings/set", methods = ["POST"])
+def ratings_set_all():
+    pass
