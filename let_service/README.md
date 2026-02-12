@@ -47,3 +47,22 @@ LET_DB_PORT=3306
 LET_DB_NAME=let_service
 LET_DB_USER=let_user
 LET_DB_PASSWORD=your_password
+
+#komande za testiranje u terminalu za svaki slucaj:
+
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8801/airlines" -ContentType "application/json" -Body '{"name":"Air Serbia"}'
+
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8801/flights" -ContentType "application/json" -Headers @{ "X-User-Id"="10"; "X-User-Role"="MANAGER" } -Body '{"name":"BGD-ZRH DEMO","airline_id":1,"distance_km":950,"duration_seconds":120,"departure_time":"2026-12-17T20:00:00","origin_airport":"BEG","destination_airport":"ZRH","created_by":"manager10","price":199.99}'
+
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8801/flights?tab=pending"
+
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8801/flights/1/approve" -Headers @{ "X-User-Id"="1"; "X-User-Role"="ADMIN" }
+
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8801/flights?tab=upcoming"
+
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8801/purchases" -ContentType "application/json" -Headers @{ "X-User-Id"="99"; "X-User-Role"="USER" } -Body '{"flight_id":1}'
+
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8801/users/99/purchases"
+
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8801/flights/1/buyers"
+
