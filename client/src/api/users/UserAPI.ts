@@ -16,7 +16,7 @@ export class UserAPI implements IUserAPI {
 
   async getAllUsers(token: string): Promise<UserDTO[]> {
     return (
-      await this.axiosInstance.get<UserDTO[]>("/users", {
+      await this.axiosInstance.get<UserDTO[]>("/admin/get-all-users", {
         headers: { Authorization: `Bearer ${token}` },
       })
     ).data;

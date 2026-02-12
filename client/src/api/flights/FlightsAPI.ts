@@ -13,16 +13,16 @@ export class FlightsAPI implements IFlightsAPI {
 	}
 
 	async getAllFlights(): Promise<FlightDTO[]> {
-		return (await this.axiosInstance.get<FlightDTO[]>("/flights")).data;
+		return (await this.axiosInstance.get<FlightDTO[]>("/flights/get-all-that")).data;
 	}
 
 	async getFlightById(id: number): Promise<FlightDTO> {
-		return (await this.axiosInstance.get<FlightDTO>(`/flights/${id}`)).data;
+		return (await this.axiosInstance.get<FlightDTO>(`/flights/get/${id}`)).data;
 	}
 
 	async createFlight(token: string, data: CreateFlightDTO): Promise<FlightDTO> {
 		return (
-			await this.axiosInstance.post<FlightDTO>("/flights", data, {
+			await this.axiosInstance.post<FlightDTO>("/flights/new", data, {
 				headers: { Authorization: `Bearer ${token}` },
 			})
 		).data;
@@ -30,7 +30,7 @@ export class FlightsAPI implements IFlightsAPI {
 
 	async approveFlight(token: string, id: number): Promise<FlightDTO> {
 		return (
-			await this.axiosInstance.put<FlightDTO>(`/flights/${id}/approve`, null, {
+			await this.axiosInstance.post<FlightDTO>(`/flights/approve/${id}`, null, {
 				headers: { Authorization: `Bearer ${token}` },
 			})
 		).data;
@@ -38,8 +38,18 @@ export class FlightsAPI implements IFlightsAPI {
 
 	async rejectFlight(token: string, id: number, reason: string): Promise<FlightDTO> {
 		return (
-			await this.axiosInstance.put<FlightDTO>(
-				`/flights/${id}/reject`,
+			await this.axiosInstance.post<FlightDTO>(
+				`/flights/reject/${id}`,
+				{ reason },
+				{ headers: { Authorization: `Bearer ${token}` } }
+			)
+		).data;
+  }
+	
+  async cancelFlight(token: string, id: number, reason: string): Promise<FlightDTO> {
+		return (
+			await this.axiosInstance.post<FlightDTO>(
+				`/flights/cancel/${id}`,
 				{ reason },
 				{ headers: { Authorization: `Bearer ${token}` } }
 			)
@@ -52,10 +62,22 @@ export class FlightsAPI implements IFlightsAPI {
 				headers: { Authorization: `Bearer ${token}` },
 			})
 		).data;
+  }
+	
+  async updateFlight(token: string, id: number): Promise<void> {
+		await this.axiosInstance.put(`/flights/update/${id}`, {
+			headers: { Authorization: `Bearer ${token}` },
+		});
 	}
 
 	async deleteFlight(token: string, id: number): Promise<void> {
-		await this.axiosInstance.delete(`/flights/${id}`, {
+		await this.axiosInstance.delete(`/flights/remove/${id}`, {
+			headers: { Authorization: `Bearer ${token}` },
+		});
+  }
+	
+  async getBuyersForFlight(token: string, id: number): Promise<void> {
+		await this.axiosInstance.get(`/flights/buyers/${id}`, {
 			headers: { Authorization: `Bearer ${token}` },
 		});
 	}

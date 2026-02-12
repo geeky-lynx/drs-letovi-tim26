@@ -13,10 +13,10 @@ export class RatingsAPI implements IRatingsAPI {
   }
 
   async createRating(data: { user_id: number; flight_id: number; rating: number }): Promise<CreateRatingResponse> {
-    return (await this.axiosInstance.post<CreateRatingResponse>("/rating", data)).data;
+    return (await this.axiosInstance.post<CreateRatingResponse>("/ratings/new_or_update", data)).data;
   }
 
   async getAllRatings(): Promise<RatingDTO[]> {
-    return (await this.axiosInstance.get<RatingDTO[]>("/ratings")).data;
+    return (await this.axiosInstance.get<RatingDTO[]>("/ratings/get")).data;
   }
 }

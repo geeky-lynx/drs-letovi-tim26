@@ -13,10 +13,10 @@ export class PurchasesAPI implements IPurchasesAPI {
   }
 
   async createPurchase(data: { user_id: number; flight_id: number }): Promise<CreatePurchaseResponse> {
-    return (await this.axiosInstance.post<CreatePurchaseResponse>("/purchase", data)).data;
+    return (await this.axiosInstance.post<CreatePurchaseResponse>("/purchases/buy", data)).data;
   }
 
   async getUserPurchases(userId: number): Promise<PurchaseDTO[]> {
-    return (await this.axiosInstance.get<PurchaseDTO[]>(`/purchases/${userId}`)).data;
+    return (await this.axiosInstance.get<PurchaseDTO[]>(`/user/all_purchases/${userId}`)).data;
   }
 }

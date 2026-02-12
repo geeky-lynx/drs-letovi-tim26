@@ -350,16 +350,30 @@ def user_get_purchases(user_id: int):
 # Airlines routes
 
 @app.route("/airlines/get", methods = ["GET"])
-def airlines_get():
+def airlines_get_all():
     data = requests.get(f"{LET_SERVICE_URL}/airlines")
     return jsonify({"message": "Retrieved all airlines", "data": data.json()}), 200
 
+
+
+@app.route("/airlines/get/<int:airline_id>", methods = ["GET"])
+def airlines_get_by_id(airline_id: int):
+    data = requests.get(f"{LET_SERVICE_URL}/airlines/{airline_id}")
+    return jsonify({"message": "Retrieved an airline", "data": data.json()}), 200
 
 
 @app.route("/airlines/set", methods = ["POST"])
 def airlines_new_or_get_existing():
     headers = {"Content-Type": "application/json"}
     req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
     
     if "name" not in req_data:
         return jsonify({"message": "Invalid request (no 'name' provided)"}), 400
@@ -375,6 +389,26 @@ def airlines_new_or_get_existing():
         return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
         
     return jsonify({"message": "Created a new or fetched existing airline", "data": res.json()}), 200
+    
+    
+    
+@app.route("/airlines/remove/<airline_id>")
+def airlines_remove_by_id(airline_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.delete(f"{LET_SERVICE_URL}/airlines")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+        
+    return jsonify({"message": "Removed the airline"}), 200
 
 
 
@@ -583,8 +617,8 @@ def purchases_buy():
     
     headers = {"Content-Type": "application/json"}
     
-    # if "token" not in req_data:
-    #     return jsonify({"message": "Not authentificated"}), 400
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
         
     # authed = jwt.decode(req_data["token"], SECRET_KEY)
     # if authed.role not in ["ADMIN"]:

@@ -15,6 +15,12 @@ def list_airlines():
     return jsonify([a.to_dict() for a in airlines])
 
 
+@api.get("/airlines/<int:airline_id>")
+def get_airline_by_id(airline_id: int):
+    airline = Airline.query.filter_by(id = airline_id).order_by(Airline.name.asc()).first()
+    return jsonify(airline)
+
+
 @api.post("/airlines")
 @require_roles(["ADMIN", "MANAGER"])
 def create_airline():
@@ -31,3 +37,15 @@ def create_airline():
     db.session.add(airline)
     db.session.commit()
     return jsonify(airline.to_dict()), 201
+
+
+@api.delete("/airlines/<int:airline_id>")
+@require_roles(["ADMIN", "MANAGER"])
+def remove_airline(airline_id: int):
+    existing = Airline.query.filter_by(id = airline_id).first()
+    if not existing:
+        return jsonify({"message": "Airline does not exist"}), 404
+
+    db.session.delete(existing)
+    db.session.commit()
+    return jsonify({"message": "Airline successfully removed"}), 201
