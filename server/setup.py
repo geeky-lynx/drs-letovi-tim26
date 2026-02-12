@@ -5,6 +5,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 import bcrypt
+import redis
 
 
 
@@ -22,6 +23,7 @@ _IS_DEV_STR = getenv("IS_DEV")
 _SECRET_KEY = getenv("SECRET_KEY")
 _DB_URI = getenv("SQLALCHEMY_DATABASE_URI")
 _LET_SERVICE_URL = getenv("LET_SERVICE_URL")
+_REDIS_DB = getenv("REDIS_DB")
 
 # Stop the program if there are no config parameters
 if _SECRET_KEY is None:
@@ -36,6 +38,10 @@ if _LET_SERVICE_URL is None:
     print("_LET_SERVICE_URL == None! Can\'t proceed with running Flask instance")
     exit(2)
 
+if _REDIS_DB is None:
+    print("_LET_SERVICE_URL == None! Can\'t proceed with running Flask instance")
+    exit(2)
+
 
 
 IS_DEV = True if _IS_DEV_STR is str and _IS_DEV_STR.lower() in ["1", "true"] else False
@@ -44,6 +50,7 @@ DB_URI: str = _DB_URI
 # User can't login for given amount of seconds if all attempts've been used
 LOGIN_TIMEOUT_SECONDS = 60 if IS_DEV else 900
 LET_SERVICE_URL: str = _LET_SERVICE_URL
+REDIS_DB: str = _REDIS_DB
 
 
 
@@ -62,3 +69,5 @@ class DbBase(DeclarativeBase):
 
 db = SQLAlchemy(app, model_class = DbBase)
 SALT = bcrypt.gensalt()
+
+redis = redis.Redis(REDIS_DB)

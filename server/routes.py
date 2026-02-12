@@ -7,7 +7,7 @@ import requests
 import bcrypt
 import jwt
 
-from setup import app, db, SALT, SECRET_KEY, LOGIN_TIMEOUT_SECONDS, LET_SERVICE_URL
+from setup import app, db, redis, SALT, SECRET_KEY, LOGIN_TIMEOUT_SECONDS, LET_SERVICE_URL
 from models import User
 from input_validator import is_email_valid, is_password_valid, is_password_matching
 
@@ -55,6 +55,10 @@ def user_login():
         flash("Invalid password", "error")
         return jsonify({"message": "Invalid password"}), 400
 
+    # _r_query = redis.get(user_email)
+    # if _r_query is None:
+    #     _query = _r_query
+
     _query: (User | None) = User.query.filter_by(email = user_email).first()
     if _query is None:
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
@@ -74,8 +78,10 @@ def user_login():
 
         flash("Incorrect email or password (or this account doesn\'t exist)", "error")
         return jsonify({"message": "Incorrect email or password (or this account doesn\'t exist)"}), 400
+        
 
     dto = query.to_dto()
+    # redis.set(user_email, dto)
     token = jwt.encode(dto, SECRET_KEY)
 
     return jsonify({"message": "Successfully logged in", "token": token}), 200
@@ -88,13 +94,13 @@ def user_register():
 
     is_email_empty = "email" not in req_data
     is_password_empty = "password" not in req_data
-    is_repeated_empty = "password_repeated" not in req_data
+    is_repeated_empty = "confirmPassword" not in req_data
     if (is_email_empty or is_password_empty or is_repeated_empty):
         return jsonify({"message": "Invalid form request"}), 400
 
     user_email = req_data["email"]
     unhashed_password = req_data["password"]
-    repeated_password = req_data["password_repeated"]
+    repeated_password = req_data["confirmPassword"]
 
     if not is_email_valid(user_email):
         flash("Invalid email", "error")
@@ -120,14 +126,14 @@ def user_register():
     print("register: hashed password")
     print(hashed_password)
     role = req_data["role"] if "role" in req_data else "USER"
-    first_name = req_data.get("first_name")
-    last_name = req_data.get("last_name")
-    _birth_date = req_data.get("birth_date")
+    first_name = req_data.get("firstName")
+    last_name = req_data.get("lastName")
+    _birth_date = req_data.get("dateOfBirth")
     if _birth_date is None:
         _birth_date = "1900-01-01"
     birth_date = datetime.strptime(_birth_date, "%Y-%m-%d")
     gender = req_data.get("gender")
-    country = req_data.get("country")
+    country = req_data.get("state")
     if country is None:
         country = ""
     street = req_data.get("street")
@@ -270,7 +276,7 @@ def update_user_info():
 
 # User routes
 
-@app.route("/user/update-info")
+@app.post("/user/update-info")
 def update_user_info__not_admin():
     req_data = request.get_json()
 

@@ -6,7 +6,7 @@ RUN apk add --no-cache linux-headers gcc musl-dev
 
 COPY . .
 # .env is not copied for some reason... (make sure to have one)
-COPY ./let_service/.env ./let_service/.env
+# COPY ./let_service/.env ./let_service/.env
 COPY .env .env
 
 RUN pip install -r requirements-let-service.txt
