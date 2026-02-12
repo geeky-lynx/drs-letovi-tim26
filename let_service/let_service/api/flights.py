@@ -120,6 +120,17 @@ def list_flights():
     return jsonify(out)
 
 
+@api.get("/flights/<int:fligth_id>")
+def get_flight_by_id(flight_id: int):
+        
+    query = Flight.query.filter_by(id = flight_id).first()
+    
+    if query is None:
+        return jsonify({"error": "SELECT", "message": "Not found"}), 404
+
+    return jsonify({"data": query})
+
+
 @api.post("/flights")
 @require_roles(["MANAGER"])
 def create_flight():

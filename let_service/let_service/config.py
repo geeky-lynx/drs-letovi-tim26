@@ -1,5 +1,10 @@
 import os
 from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+if not load_dotenv():
+    print("Error while loading .env variables")
+    exit(2)
 
 
 def env(key: str, default=None):

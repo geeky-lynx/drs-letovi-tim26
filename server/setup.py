@@ -21,6 +21,7 @@ print("Local .env is loaded")
 _IS_DEV_STR = getenv("IS_DEV")
 _SECRET_KEY = getenv("SECRET_KEY")
 _DB_URI = getenv("SQLALCHEMY_DATABASE_URI")
+_LET_SERVICE_URL = getenv("LET_SERVICE_URL")
 
 # Stop the program if there are no config parameters
 if _SECRET_KEY is None:
@@ -30,6 +31,10 @@ if _SECRET_KEY is None:
 if _DB_URI is None:
     print("DB_URI == None! Can\'t proceed with running Flask instance")
     exit(2)
+    
+if _LET_SERVICE_URL is None:
+    print("_LET_SERVICE_URL == None! Can\'t proceed with running Flask instance")
+    exit(2)
 
 
 
@@ -38,6 +43,7 @@ SECRET_KEY: str = _SECRET_KEY
 DB_URI: str = _DB_URI
 # User can't login for given amount of seconds if all attempts've been used
 LOGIN_TIMEOUT_SECONDS = 60 if IS_DEV else 900
+LET_SERVICE_URL: str = _LET_SERVICE_URL
 
 
 

@@ -7,7 +7,7 @@ import requests
 import bcrypt
 import jwt
 
-from setup import app, db, SALT, SECRET_KEY, LOGIN_TIMEOUT_SECONDS
+from setup import app, db, SALT, SECRET_KEY, LOGIN_TIMEOUT_SECONDS, LET_SERVICE_URL
 from models import User
 from input_validator import is_email_valid, is_password_valid, is_password_matching
 
@@ -331,9 +331,19 @@ def update_user_info__not_admin():
 
 
 
-@app.route("/user/all_purchases")
-def user_get_purchases():
-    pass
+@app.route("/user/all_purchases/<int:user_id>", methods = ["GET"])
+def user_get_purchases(user_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+
+    res = requests.delete(f"{LET_SERVICE_URL}/users/{user_id}/purchases")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "User's purchases fetched", "data": res.json()}), 200
 
 
 
@@ -341,14 +351,30 @@ def user_get_purchases():
 
 @app.route("/airlines/get", methods = ["GET"])
 def airlines_get():
-    data = requests.get("")
-    pass
+    data = requests.get(f"{LET_SERVICE_URL}/airlines")
+    return jsonify({"message": "Retrieved all airlines", "data": data.json()}), 200
 
 
 
 @app.route("/airlines/set", methods = ["POST"])
-def airlines_set():
-    pass
+def airlines_new_or_get_existing():
+    headers = {"Content-Type": "application/json"}
+    req_data = request.get_json()
+    
+    if "name" not in req_data:
+        return jsonify({"message": "Invalid request (no 'name' provided)"}), 400
+    
+    payload = {"name": req_data["name"]}
+    res = requests.post(
+        f"{LET_SERVICE_URL}/airlines",
+        headers = headers,
+        json = payload
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+        
+    return jsonify({"message": "Created a new or fetched existing airline", "data": res.json()}), 200
 
 
 
@@ -356,57 +382,224 @@ def airlines_set():
 
 @app.route("/flights/get-all-that", methods = ["GET"])
 def flights_get_all():
-    pass
+    req_data = request.form
+    payload = {
+        "airline_id": req_data.get("airlineId"),
+        "approval": req_data.get("approval_status"),
+        "query": req_data.get("query"),
+        "tab": req_data.get("tab")
+    }
+    
+    res = requests.get(
+        f"{LET_SERVICE_URL}/flights",
+        data = payload
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Retrieved flights data", "data": res.json()}), 200
+
+
+@app.route("/flights/get/<int:flight_id>", methods = ["GET"])
+def flights_get_by_id(flight_id: int):
+    # req_data = request.form
+    # payload = {"airline_id": req_data.get("airlineId"), "approval": req_data.get("approval_status")}
+    res = requests.get(
+        f"{LET_SERVICE_URL}/flights/{flight_id}",
+        # data = payload
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Retrieved flights data", "data": res.json()}), 200
+
 
 
 
 @app.route("/flights/new", methods = ["POST"])
 def flights_create_new():
-    pass
+    req_data = request.get_json()
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "name": req_data.get("name"),
+        "airline_id": req_data.get("airline_id"),
+        "distance_km": req_data.get("distance_km"),
+        "duration_seconds": req_data.get("duration_seconds"),
+        "departure_time": req_data.get("departure_time"),
+        "origin_airport": req_data.get("origin_airport"),
+        "destination_airport": req_data.get("destination_airport"),
+        "price": req_data.get("price")
+    }
+    
+    res = requests.post(
+        f"{LET_SERVICE_URL}/flights",
+        headers = headers,
+        json = payload
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Created new flight", "data": res.json()}), 200
 
 
 
-@app.route("/flights/update", methods = ["PUT"])
-def flights_update_one():
-    pass
+@app.route("/flights/update/<int:flight_id>", methods = ["PUT"])
+def flights_update_one(flight_id: int):
+    req_data = request.get_json()
+    headers = {"Content-Type": "application/json"}
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.put(
+        f"{LET_SERVICE_URL}/flights/{flight_id}",
+        headers = headers,
+        json = req_data
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Flight updated", "data": res.json()}), 200
     
     
 
-@app.route("/flights/remove", methods = ["DELETE"])
-def flights_remove_one():
-    pass
+@app.route("/flights/remove/<int:flight_id>", methods = ["DELETE"])
+def flights_remove_one(flight_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.delete(f"{LET_SERVICE_URL}/flights/{flight_id}")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Flight removed", "data": res.json()}), 200
 
 
 
-@app.route("/flights/approve", methods = ["POST"])
-def flights_approve():
-    pass
+@app.route("/flights/approve/<int:flight_id>", methods = ["POST"])
+def flights_approve(flight_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.post(f"{LET_SERVICE_URL}/flights/{flight_id}")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Flight approved", "data": res.json()}), 200
 
 
 
-@app.route("/flights/reject", methods = ["POST"])
-def flights_reject():
-    pass
+@app.route("/flights/reject/<int:flight_id>", methods = ["POST"])
+def flights_reject(flight_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.post(f"{LET_SERVICE_URL}/flights/{flight_id}")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Flight rejected", "data": res.json()}), 200
 
 
 
-@app.route("/flights/cancel", methods = ["POST"])
-def flights_cancel():
-    pass
+@app.route("/flights/cancel/<int:flight_id>", methods = ["POST"])
+def flights_cancel(flight_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["MANAGER", "ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.post(f"{LET_SERVICE_URL}/flights/{flight_id}")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Flight cancelled", "data": res.json()}), 200
 
 
 
-@app.route("/flights/buyers", methods = ["GET"])
-def flights_buyers():
-    pass
+@app.route("/flights/buyers/<int:flight_id>", methods = ["GET"])
+def flights_buyers(flight_id: int):
+    req_data = request.get_json()
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+    if authed.role not in ["ADMIN"]:
+        return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.get(f"{LET_SERVICE_URL}/flights/{flight_id}/buyers")
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Not implemented", "data": res.json()}), 200
 
 
 
 # Purchases routes
 
-@app.route("/purchases/buy", methods = ["GET"])
+@app.route("/purchases/buy", methods = ["POST"])
 def purchases_buy():
-    pass
+    req_data = {}
+    if request.is_json:
+        req_data = request.get_json()
+    else:
+        req_data = request.form
+    
+    headers = {"Content-Type": "application/json"}
+    
+    # if "token" not in req_data:
+    #     return jsonify({"message": "Not authentificated"}), 400
+        
+    # authed = jwt.decode(req_data["token"], SECRET_KEY)
+    # if authed.role not in ["ADMIN"]:
+    #     return jsonify({"message": "Unauthorized"}), 400
+    
+    res = requests.post(
+        f"{LET_SERVICE_URL}/purchases",
+        headers = headers,
+        json = req_data
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Purchase done", "data": res.json()}), 200
 
 
 
@@ -414,10 +607,61 @@ def purchases_buy():
 
 @app.route("/ratings/get", methods = ["GET"])
 def ratings_get_all():
-    pass
+    req_data = {}
+    if request.is_json:
+        req_data = request.get_json()
+    else:
+        req_data = request.form
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "flight_id": req_data.get("flight_id"),
+        "user_id": req_data.get("user_id")
+    }
+    
+    res = requests.get(
+        f"{LET_SERVICE_URL}/ratings",
+        headers = headers,
+        json = payload
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Ratings fetched", "data": res.json()}), 200
 
 
 
-@app.route("/ratings/set", methods = ["POST"])
+@app.route("/ratings/new_or_update", methods = ["POST"])
 def ratings_set_all():
-    pass
+    req_data = {}
+    if request.is_json:
+        req_data = request.get_json()
+    else:
+        req_data = request.form
+    
+    if "token" not in req_data:
+        return jsonify({"message": "Not authentificated"}), 400
+        
+    authed = jwt.decode(req_data["token"], SECRET_KEY)
+        
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "user_id": authed.get("user_id"),
+        "flight_id": req_data.get("flight_id"),
+        "rating": req_data.get("rating")
+    }
+    
+    res = requests.post(
+        f"{LET_SERVICE_URL}/ratings",
+        headers = headers,
+        json = payload
+    )
+    
+    if res.status_code >= 400:
+        return jsonify({"message": "Error occured", "reason": res.json().get("message")}), res.status_code
+    
+    return jsonify({"message": "Rating created/updated", "data": res.json()}), 200
